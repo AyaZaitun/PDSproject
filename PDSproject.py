@@ -6,6 +6,7 @@ from sklearn.preprocessing import LabelEncoder,StandardScaler,normalize
 from PIL import Image
 from io import BytesIO
 import time
+from fastapi import FastAPI
 
 df=pd.read_csv("imdb_top_1000.csv")
 #identify the columns , null values and dataframe shape
@@ -58,14 +59,14 @@ def open_url_poster_link(url_col):
             print(f"Failed to load image: {i}")
     
 def movie_information(info):
-    for i in info[0:5].itertuples(index=False):
+    for i in info[0:5].itertuples():
         print(i)
         time.sleep(3)
 
 if __name__ == "__main__":
     def1=multiprocessing.Process(target=open_url_poster_link,args=(df["Poster_Link"],))
     def2=multiprocessing.Process(target=movie_information,args=(df[["Movie_Title","Released_Year","Runtime","Genre","IMDB_Rating","Director"]],))
-    
+
     def1.start()
     def2.start()
     
@@ -80,6 +81,21 @@ data_json=pd.DataFrame(data)
 df2=data_json.head(1000)
 print(df2)
 
-merge_data=pd.merge(df2,df,on="Movie_Title",how="inner")
-print(merge_data)
-merge_data.to_csv("mereged_imdb.csv")
+merged_data=pd.merge(df2,df,on="Movie_Title",how="inner")
+print(merged_data)
+
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return merged_data.head(10).to_dict()
+
+@app.get("/Movie_Title/{Movie_Title}")
+def movie_info(Movie_Title: str):
+    
+    filtered_data = merged_data[merged_data["Movie_Title"].str.lower() == Movie_Title.lower()]
+    
+    if filtered_data.empty:
+        return {"message": "Movie not found."}
+    else:
+        return filtered_data.to_dict()
